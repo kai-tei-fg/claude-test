@@ -53,10 +53,10 @@
 
         .game-board {
             display: grid;
-            grid-template-columns: repeat(3, 1fr);
+            grid-template-columns: repeat(4, 1fr);
             gap: 15px;
             margin: 20px auto;
-            max-width: 400px;
+            max-width: 520px;
         }
 
         .hole {
@@ -271,6 +271,26 @@
         let isPlaying = false;
         let currentMole = null;
 
+        // 効果音を作成（Web Audio API）
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+
+        function playHitSound() {
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+
+            oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
+            oscillator.frequency.exponentialRampToValueAtTime(400, audioContext.currentTime + 0.1);
+
+            gainNode.gain.setValueAtTime(0.5, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.2);
+
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + 0.2);
+        }
+
         const difficultySettings = {
             easy: { moleTime: 1500, minTime: 800 },
             normal: { moleTime: 1000, minTime: 500 },
@@ -280,7 +300,7 @@
         // ゲームボードを作成
         function createBoard() {
             gameBoard.innerHTML = '';
-            for (let i = 0; i < 9; i++) {
+            for (let i = 0; i < 16; i++) {
                 const hole = document.createElement('div');
                 hole.className = 'hole';
                 hole.dataset.index = i;
@@ -325,6 +345,9 @@
                 scoreDisplay.textContent = score;
                 mole.classList.remove('up');
 
+                // 効果音を再生
+                playHitSound();
+
                 // ヒットエフェクト表示
                 hitEffect.classList.add('show');
                 setTimeout(() => {
@@ -344,7 +367,7 @@
             moles.forEach(mole => mole.classList.remove('up'));
 
             // ランダムな穴からモグラを出す
-            const randomIndex = Math.floor(Math.random() * 9);
+            const randomIndex = Math.floor(Math.random() * 16);
             const mole = holes[randomIndex].querySelector('.mole');
             mole.classList.add('up');
             currentMole = mole;
