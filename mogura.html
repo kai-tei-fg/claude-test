@@ -173,6 +173,74 @@
         .mole-whisker.right-1 { right: -8%; transform: rotate(10deg); }
         .mole-whisker.right-2 { right: -8%; top: 60%; transform: rotate(-10deg); }
 
+        /* 爆弾のスタイル */
+        .bomb {
+            position: absolute;
+            bottom: -70%;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 60%;
+            height: 60%;
+            transition: bottom 0.2s ease-out;
+            z-index: 1;
+            display: none;
+        }
+
+        .bomb.up {
+            bottom: 20%;
+            display: block;
+        }
+
+        .bomb-body {
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle at 30% 30%, #444 0%, #000 100%);
+            border-radius: 50%;
+            position: relative;
+        }
+
+        .bomb-fuse {
+            position: absolute;
+            top: -20%;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 8%;
+            height: 25%;
+            background: linear-gradient(90deg, #8B4513 0%, #654321 100%);
+            border-radius: 2px;
+        }
+
+        .bomb-spark {
+            position: absolute;
+            top: -35%;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 20%;
+            height: 20%;
+            background: radial-gradient(circle, #ff6600 0%, #ff0000 50%, transparent 70%);
+            border-radius: 50%;
+            animation: sparkle 0.3s infinite alternate;
+        }
+
+        @keyframes sparkle {
+            0% { opacity: 1; transform: translateX(-50%) scale(1); }
+            100% { opacity: 0.6; transform: translateX(-50%) scale(1.3); }
+        }
+
+        .bomb-highlight {
+            position: absolute;
+            top: 20%;
+            left: 25%;
+            width: 20%;
+            height: 20%;
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+        }
+
+        .hit-effect.bomb-effect {
+            color: #ff0000;
+        }
+
         .hit-effect {
             position: absolute;
             top: 50%;
@@ -363,6 +431,35 @@
             oscillator.stop(audioContext.currentTime + 0.2);
         }
 
+        function playExplosionSound() {
+            // 爆発音（低音のノイズ）
+            const bufferSize = audioContext.sampleRate * 0.3;
+            const buffer = audioContext.createBuffer(1, bufferSize, audioContext.sampleRate);
+            const data = buffer.getChannelData(0);
+
+            for (let i = 0; i < bufferSize; i++) {
+                data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (bufferSize * 0.1));
+            }
+
+            const noise = audioContext.createBufferSource();
+            noise.buffer = buffer;
+
+            const filter = audioContext.createBiquadFilter();
+            filter.type = 'lowpass';
+            filter.frequency.value = 500;
+
+            const gainNode = audioContext.createGain();
+            gainNode.gain.setValueAtTime(0.8, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+
+            noise.connect(filter);
+            filter.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+
+            noise.start(audioContext.currentTime);
+            noise.stop(audioContext.currentTime + 0.3);
+        }
+
         const difficultySettings = {
             easy: { moleTime: 1500, minTime: 800 },
             normal: { moleTime: 1000, minTime: 500 },
@@ -393,25 +490,58 @@
                     </div>
                 `;
 
+                const bomb = document.createElement('div');
+                bomb.className = 'bomb';
+                bomb.innerHTML = `
+                    <div class="bomb-body">
+                        <div class="bomb-fuse"></div>
+                        <div class="bomb-spark"></div>
+                        <div class="bomb-highlight"></div>
+                    </div>
+                `;
+
                 const hitEffect = document.createElement('div');
                 hitEffect.className = 'hit-effect';
                 hitEffect.textContent = '+10';
 
                 hole.appendChild(mole);
+                hole.appendChild(bomb);
                 hole.appendChild(hitEffect);
                 hole.addEventListener('click', whackMole);
                 gameBoard.appendChild(hole);
             }
         }
 
-        // モグラを叩く
+        // モグラまたは爆弾を叩く
         function whackMole(e) {
             if (!isPlaying) return;
 
             const hole = e.currentTarget;
             const mole = hole.querySelector('.mole');
+            const bomb = hole.querySelector('.bomb');
             const hitEffect = hole.querySelector('.hit-effect');
 
+            // 爆弾をクリックした場合
+            if (bomb.classList.contains('up')) {
+                bomb.classList.remove('up');
+
+                // 爆発音を再生
+                playExplosionSound();
+
+                // 爆弾エフェクト表示
+                hitEffect.textContent = '💥';
+                hitEffect.classList.add('show', 'bomb-effect');
+                setTimeout(() => {
+                    hitEffect.classList.remove('show', 'bomb-effect');
+                    hitEffect.textContent = '+10';
+                }, 500);
+
+                // ゲーム終了（爆弾）
+                endGame(true);
+                return;
+            }
+
+            // モグラをクリックした場合
             if (mole.classList.contains('up')) {
                 score += 10;
                 scoreDisplay.textContent = score;
@@ -430,19 +560,31 @@
             }
         }
 
-        // ランダムにモグラを出す
+        // ランダムにモグラまたは爆弾を出す
         function showRandomMole() {
             const holes = document.querySelectorAll('.hole');
             const moles = document.querySelectorAll('.mole');
+            const bombs = document.querySelectorAll('.bomb');
 
-            // 現在出ているモグラを隠す
+            // 現在出ているモグラと爆弾を隠す
             moles.forEach(mole => mole.classList.remove('up'));
+            bombs.forEach(bomb => bomb.classList.remove('up'));
 
-            // ランダムな穴からモグラを出す
+            // ランダムな穴を選ぶ
             const randomIndex = Math.floor(Math.random() * 16);
-            const mole = holes[randomIndex].querySelector('.mole');
-            mole.classList.add('up');
-            currentMole = mole;
+            const hole = holes[randomIndex];
+
+            // 20%の確率で爆弾を出す
+            const isBomb = Math.random() < 0.2;
+
+            if (isBomb) {
+                const bomb = hole.querySelector('.bomb');
+                bomb.classList.add('up');
+            } else {
+                const mole = hole.querySelector('.mole');
+                mole.classList.add('up');
+                currentMole = mole;
+            }
 
             // 難易度に応じた時間で自動的に隠れる
             const difficulty = document.querySelector('input[name="difficulty"]:checked').value;
@@ -450,8 +592,13 @@
             const hideTime = Math.random() * (settings.moleTime - settings.minTime) + settings.minTime;
 
             setTimeout(() => {
+                const mole = hole.querySelector('.mole');
+                const bomb = hole.querySelector('.bomb');
                 if (mole.classList.contains('up')) {
                     mole.classList.remove('up');
+                }
+                if (bomb.classList.contains('up')) {
+                    bomb.classList.remove('up');
                 }
             }, hideTime);
         }
@@ -486,25 +633,33 @@
         }
 
         // ゲーム終了
-        function endGame() {
+        function endGame(hitBomb = false) {
             isPlaying = false;
             clearInterval(gameInterval);
             clearInterval(moleInterval);
             startBtn.disabled = false;
 
-            // 全モグラを隠す
+            // 全モグラと爆弾を隠す
             document.querySelectorAll('.mole').forEach(mole => {
                 mole.classList.remove('up');
             });
+            document.querySelectorAll('.bomb').forEach(bomb => {
+                bomb.classList.remove('up');
+            });
 
             // 結果メッセージ
-            let message = `ゲーム終了！スコア: ${score}点`;
-            if (score >= 200) {
-                message += ' - すばらしい！';
-            } else if (score >= 100) {
-                message += ' - よくできました！';
+            let message;
+            if (hitBomb) {
+                message = `💥 爆弾に当たった！ゲームオーバー！スコア: ${score}点`;
             } else {
-                message += ' - もう一度挑戦しよう！';
+                message = `ゲーム終了！スコア: ${score}点`;
+                if (score >= 200) {
+                    message += ' - すばらしい！';
+                } else if (score >= 100) {
+                    message += ' - よくできました！';
+                } else {
+                    message += ' - もう一度挑戦しよう！';
+                }
             }
             messageDisplay.textContent = message;
         }
