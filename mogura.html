@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>モグラ叩きゲーム</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .game-container {
+            background: #fff;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            text-align: center;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 2.5em;
+        }
+
+        .stats {
+            display: flex;
+            justify-content: center;
+            gap: 40px;
+            margin-bottom: 20px;
+            font-size: 1.3em;
+        }
+
+        .stats span {
+            color: #555;
+        }
+
+        .stats strong {
+            color: #764ba2;
+        }
+
+        .game-board {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin: 20px auto;
+            max-width: 400px;
+        }
+
+        .hole {
+            width: 120px;
+            height: 120px;
+            background: linear-gradient(180deg, #8B4513 0%, #654321 100%);
+            border-radius: 50%;
+            position: relative;
+            overflow: hidden;
+            cursor: pointer;
+            box-shadow: inset 0 -10px 20px rgba(0, 0, 0, 0.4);
+            transition: transform 0.1s;
+        }
+
+        .hole:hover {
+            transform: scale(1.05);
+        }
+
+        .hole::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 30px;
+            background: linear-gradient(180deg, #228B22 0%, #006400 100%);
+            border-radius: 0 0 60px 60px;
+        }
+
+        .mole {
+            position: absolute;
+            bottom: -80px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 80px;
+            height: 80px;
+            transition: bottom 0.2s ease-out;
+            z-index: 1;
+        }
+
+        .mole.up {
+            bottom: 20px;
+        }
+
+        .mole-body {
+            width: 80px;
+            height: 80px;
+            background: linear-gradient(180deg, #8B6914 0%, #6B4914 100%);
+            border-radius: 50% 50% 40% 40%;
+            position: relative;
+        }
+
+        .mole-face {
+            position: absolute;
+            top: 15px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 60px;
+            height: 50px;
+        }
+
+        .mole-eye {
+            width: 12px;
+            height: 12px;
+            background: #000;
+            border-radius: 50%;
+            position: absolute;
+            top: 10px;
+        }
+
+        .mole-eye.left {
+            left: 10px;
+        }
+
+        .mole-eye.right {
+            right: 10px;
+        }
+
+        .mole-eye::after {
+            content: '';
+            width: 4px;
+            height: 4px;
+            background: #fff;
+            border-radius: 50%;
+            position: absolute;
+            top: 2px;
+            left: 2px;
+        }
+
+        .mole-nose {
+            width: 20px;
+            height: 15px;
+            background: #FF69B4;
+            border-radius: 50%;
+            position: absolute;
+            top: 25px;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+
+        .mole-whisker {
+            position: absolute;
+            width: 20px;
+            height: 2px;
+            background: #333;
+            top: 30px;
+        }
+
+        .mole-whisker.left-1 { left: -5px; transform: rotate(-10deg); }
+        .mole-whisker.left-2 { left: -5px; top: 35px; transform: rotate(10deg); }
+        .mole-whisker.right-1 { right: -5px; transform: rotate(10deg); }
+        .mole-whisker.right-2 { right: -5px; top: 35px; transform: rotate(-10deg); }
+
+        .hit-effect {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 2em;
+            opacity: 0;
+            transition: all 0.3s;
+            z-index: 10;
+            pointer-events: none;
+        }
+
+        .hit-effect.show {
+            opacity: 1;
+            transform: translate(-50%, -80%);
+        }
+
+        .btn {
+            padding: 15px 40px;
+            font-size: 1.2em;
+            border: none;
+            border-radius: 30px;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin: 10px;
+        }
+
+        .btn-start {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-start:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-start:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .message {
+            font-size: 1.5em;
+            color: #764ba2;
+            margin-top: 20px;
+            min-height: 40px;
+        }
+
+        .difficulty {
+            margin-bottom: 20px;
+        }
+
+        .difficulty label {
+            margin: 0 10px;
+            cursor: pointer;
+        }
+
+        .difficulty input {
+            margin-right: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <h1>モグラ叩きゲーム</h1>
+
+        <div class="difficulty">
+            <label><input type="radio" name="difficulty" value="easy" checked> かんたん</label>
+            <label><input type="radio" name="difficulty" value="normal"> ふつう</label>
+            <label><input type="radio" name="difficulty" value="hard"> むずかしい</label>
+        </div>
+
+        <div class="stats">
+            <span>スコア: <strong id="score">0</strong></span>
+            <span>残り時間: <strong id="time">30</strong>秒</span>
+        </div>
+
+        <div class="game-board" id="gameBoard"></div>
+
+        <button class="btn btn-start" id="startBtn">ゲームスタート</button>
+
+        <div class="message" id="message"></div>
+    </div>
+
+    <script>
+        const gameBoard = document.getElementById('gameBoard');
+        const scoreDisplay = document.getElementById('score');
+        const timeDisplay = document.getElementById('time');
+        const startBtn = document.getElementById('startBtn');
+        const messageDisplay = document.getElementById('message');
+
+        let score = 0;
+        let timeLeft = 30;
+        let gameInterval;
+        let moleInterval;
+        let isPlaying = false;
+        let currentMole = null;
+
+        const difficultySettings = {
+            easy: { moleTime: 1500, minTime: 800 },
+            normal: { moleTime: 1000, minTime: 500 },
+            hard: { moleTime: 700, minTime: 300 }
+        };
+
+        // ゲームボードを作成
+        function createBoard() {
+            gameBoard.innerHTML = '';
+            for (let i = 0; i < 9; i++) {
+                const hole = document.createElement('div');
+                hole.className = 'hole';
+                hole.dataset.index = i;
+
+                const mole = document.createElement('div');
+                mole.className = 'mole';
+                mole.innerHTML = `
+                    <div class="mole-body">
+                        <div class="mole-face">
+                            <div class="mole-eye left"></div>
+                            <div class="mole-eye right"></div>
+                            <div class="mole-nose"></div>
+                            <div class="mole-whisker left-1"></div>
+                            <div class="mole-whisker left-2"></div>
+                            <div class="mole-whisker right-1"></div>
+                            <div class="mole-whisker right-2"></div>
+                        </div>
+                    </div>
+                `;
+
+                const hitEffect = document.createElement('div');
+                hitEffect.className = 'hit-effect';
+                hitEffect.textContent = '+10';
+
+                hole.appendChild(mole);
+                hole.appendChild(hitEffect);
+                hole.addEventListener('click', whackMole);
+                gameBoard.appendChild(hole);
+            }
+        }
+
+        // モグラを叩く
+        function whackMole(e) {
+            if (!isPlaying) return;
+
+            const hole = e.currentTarget;
+            const mole = hole.querySelector('.mole');
+            const hitEffect = hole.querySelector('.hit-effect');
+
+            if (mole.classList.contains('up')) {
+                score += 10;
+                scoreDisplay.textContent = score;
+                mole.classList.remove('up');
+
+                // ヒットエフェクト表示
+                hitEffect.classList.add('show');
+                setTimeout(() => {
+                    hitEffect.classList.remove('show');
+                }, 300);
+
+                currentMole = null;
+            }
+        }
+
+        // ランダムにモグラを出す
+        function showRandomMole() {
+            const holes = document.querySelectorAll('.hole');
+            const moles = document.querySelectorAll('.mole');
+
+            // 現在出ているモグラを隠す
+            moles.forEach(mole => mole.classList.remove('up'));
+
+            // ランダムな穴からモグラを出す
+            const randomIndex = Math.floor(Math.random() * 9);
+            const mole = holes[randomIndex].querySelector('.mole');
+            mole.classList.add('up');
+            currentMole = mole;
+
+            // 難易度に応じた時間で自動的に隠れる
+            const difficulty = document.querySelector('input[name="difficulty"]:checked').value;
+            const settings = difficultySettings[difficulty];
+            const hideTime = Math.random() * (settings.moleTime - settings.minTime) + settings.minTime;
+
+            setTimeout(() => {
+                if (mole.classList.contains('up')) {
+                    mole.classList.remove('up');
+                }
+            }, hideTime);
+        }
+
+        // ゲーム開始
+        function startGame() {
+            score = 0;
+            timeLeft = 30;
+            isPlaying = true;
+            scoreDisplay.textContent = score;
+            timeDisplay.textContent = timeLeft;
+            messageDisplay.textContent = '';
+            startBtn.disabled = true;
+
+            // 難易度設定
+            const difficulty = document.querySelector('input[name="difficulty"]:checked').value;
+            const settings = difficultySettings[difficulty];
+
+            // タイマー開始
+            gameInterval = setInterval(() => {
+                timeLeft--;
+                timeDisplay.textContent = timeLeft;
+
+                if (timeLeft <= 0) {
+                    endGame();
+                }
+            }, 1000);
+
+            // モグラ出現
+            showRandomMole();
+            moleInterval = setInterval(showRandomMole, settings.moleTime);
+        }
+
+        // ゲーム終了
+        function endGame() {
+            isPlaying = false;
+            clearInterval(gameInterval);
+            clearInterval(moleInterval);
+            startBtn.disabled = false;
+
+            // 全モグラを隠す
+            document.querySelectorAll('.mole').forEach(mole => {
+                mole.classList.remove('up');
+            });
+
+            // 結果メッセージ
+            let message = `ゲーム終了！スコア: ${score}点`;
+            if (score >= 200) {
+                message += ' - すばらしい！';
+            } else if (score >= 100) {
+                message += ' - よくできました！';
+            } else {
+                message += ' - もう一度挑戦しよう！';
+            }
+            messageDisplay.textContent = message;
+        }
+
+        // 初期化
+        createBoard();
+        startBtn.addEventListener('click', startGame);
+    </script>
+</body>
+</html>

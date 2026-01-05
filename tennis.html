@@ -1,0 +1,678 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>⚡ ULTRA TENNIS ⚡</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+        }
+
+        @keyframes rainbow {
+            0% { filter: hue-rotate(0deg); }
+            100% { filter: hue-rotate(360deg); }
+        }
+
+        @keyframes glow {
+            0%, 100% { text-shadow: 0 0 10px #fff, 0 0 20px #fff, 0 0 30px #0ff; }
+            50% { text-shadow: 0 0 20px #fff, 0 0 30px #0ff, 0 0 40px #0ff, 0 0 50px #0ff; }
+        }
+
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(45deg, #000, #1a001a, #000);
+            background-size: 400% 400%;
+            animation: rainbow 10s ease infinite;
+            font-family: 'Courier New', monospace;
+            color: #fff;
+            overflow: hidden;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background:
+                repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0, 255, 255, 0.03) 2px, rgba(0, 255, 255, 0.03) 4px),
+                repeating-linear-gradient(90deg, transparent, transparent 2px, rgba(255, 0, 255, 0.03) 2px, rgba(255, 0, 255, 0.03) 4px);
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        .game-container {
+            text-align: center;
+            position: relative;
+            z-index: 2;
+        }
+
+        h1 {
+            font-size: 48px;
+            font-weight: bold;
+            letter-spacing: 10px;
+            animation: glow 2s ease-in-out infinite;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+        }
+
+        canvas {
+            border: 3px solid #0ff;
+            background: #000;
+            display: block;
+            margin: 20px auto;
+            box-shadow:
+                0 0 20px #0ff,
+                0 0 40px #0ff,
+                inset 0 0 20px rgba(0, 255, 255, 0.1);
+            transition: all 0.3s;
+        }
+
+        canvas.hit {
+            animation: shake 0.2s;
+        }
+
+        .score {
+            font-size: 48px;
+            margin: 20px 0;
+            letter-spacing: 30px;
+            font-weight: bold;
+            text-shadow: 0 0 10px #fff, 0 0 20px #0ff;
+        }
+
+        .score.flash {
+            animation: pulse 0.5s;
+        }
+
+        .combo {
+            font-size: 24px;
+            color: #ff0;
+            margin: 10px 0;
+            height: 30px;
+            text-shadow: 0 0 10px #ff0;
+        }
+
+        .controls {
+            margin: 20px 0;
+            font-size: 14px;
+            color: #0ff;
+            text-shadow: 0 0 5px #0ff;
+        }
+
+        .controls p {
+            margin: 5px 0;
+        }
+
+        .game-over {
+            font-size: 36px;
+            color: #ff0;
+            margin: 10px 0;
+            animation: pulse 1s infinite;
+            text-shadow: 0 0 20px #ff0, 0 0 40px #ff0;
+        }
+
+        button {
+            background: linear-gradient(45deg, #0ff, #f0f);
+            color: #000;
+            border: none;
+            padding: 15px 40px;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            font-family: 'Courier New', monospace;
+            margin: 10px;
+            border-radius: 5px;
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.5);
+            transition: all 0.3s;
+            text-transform: uppercase;
+        }
+
+        button:hover {
+            transform: scale(1.1);
+            box-shadow: 0 0 30px rgba(0, 255, 255, 0.8);
+        }
+
+        button:active {
+            transform: scale(0.95);
+        }
+
+        .particles {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 0;
+        }
+    </style>
+</head>
+<body>
+    <canvas class="particles" id="particles"></canvas>
+    <div class="game-container">
+        <h1>⚡ ULTRA TENNIS ⚡</h1>
+        <div class="score" id="scoreContainer">
+            <span id="player1Score">0</span> : <span id="player2Score">0</span>
+        </div>
+        <div class="combo" id="combo"></div>
+        <canvas id="gameCanvas" width="800" height="600"></canvas>
+        <div id="gameOver" class="game-over" style="display: none;"></div>
+        <button id="startButton">🚀 START 🚀</button>
+        <div class="controls">
+            <p>操作: W (上) / S (下)</p>
+            <p>プレイヤー vs CPU</p>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const particleCanvas = document.getElementById('particles');
+        const particleCtx = particleCanvas.getContext('2d');
+        const player1ScoreEl = document.getElementById('player1Score');
+        const player2ScoreEl = document.getElementById('player2Score');
+        const gameOverEl = document.getElementById('gameOver');
+        const startButton = document.getElementById('startButton');
+        const scoreContainer = document.getElementById('scoreContainer');
+        const comboEl = document.getElementById('combo');
+
+        particleCanvas.width = window.innerWidth;
+        particleCanvas.height = window.innerHeight;
+
+        // パーティクルシステム
+        const backgroundParticles = [];
+        for (let i = 0; i < 50; i++) {
+            backgroundParticles.push({
+                x: Math.random() * particleCanvas.width,
+                y: Math.random() * particleCanvas.height,
+                vx: (Math.random() - 0.5) * 2,
+                vy: (Math.random() - 0.5) * 2,
+                size: Math.random() * 2 + 1,
+                alpha: Math.random() * 0.5 + 0.3
+            });
+        }
+
+        function animateBackgroundParticles() {
+            particleCtx.fillStyle = 'rgba(0, 0, 0, 0.05)';
+            particleCtx.fillRect(0, 0, particleCanvas.width, particleCanvas.height);
+
+            backgroundParticles.forEach(p => {
+                p.x += p.vx;
+                p.y += p.vy;
+
+                if (p.x < 0 || p.x > particleCanvas.width) p.vx *= -1;
+                if (p.y < 0 || p.y > particleCanvas.height) p.vy *= -1;
+
+                particleCtx.fillStyle = `rgba(0, 255, 255, ${p.alpha})`;
+                particleCtx.beginPath();
+                particleCtx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                particleCtx.fill();
+            });
+
+            requestAnimationFrame(animateBackgroundParticles);
+        }
+        animateBackgroundParticles();
+
+        // ゲーム状態
+        let gameRunning = false;
+        let animationId;
+        let combo = 0;
+        let maxCombo = 0;
+
+        // パーティクルエフェクト
+        const particles = [];
+
+        // パドル設定
+        const paddleWidth = 15;
+        const paddleHeight = 100;
+        const paddleSpeed = 7;
+
+        const player1 = {
+            x: 20,
+            y: canvas.height / 2 - paddleHeight / 2,
+            width: paddleWidth,
+            height: paddleHeight,
+            dy: 0,
+            score: 0,
+            color: '#0ff',
+            trail: []
+        };
+
+        const player2 = {
+            x: canvas.width - 20 - paddleWidth,
+            y: canvas.height / 2 - paddleHeight / 2,
+            width: paddleWidth,
+            height: paddleHeight,
+            dy: 0,
+            score: 0,
+            color: '#f0f',
+            trail: []
+        };
+
+        // ボール設定
+        const ball = {
+            x: canvas.width / 2,
+            y: canvas.height / 2,
+            radius: 10,
+            dx: 10,
+            dy: 10,
+            speed: 10,
+            trail: [],
+            glowIntensity: 1
+        };
+
+        // キー入力
+        const keys = {};
+
+        document.addEventListener('keydown', (e) => {
+            keys[e.key] = true;
+        });
+
+        document.addEventListener('keyup', (e) => {
+            keys[e.key] = false;
+        });
+
+        // パーティクル生成
+        function createParticles(x, y, color, count = 20) {
+            for (let i = 0; i < count; i++) {
+                particles.push({
+                    x: x,
+                    y: y,
+                    vx: (Math.random() - 0.5) * 10,
+                    vy: (Math.random() - 0.5) * 10,
+                    size: Math.random() * 5 + 2,
+                    color: color,
+                    alpha: 1,
+                    decay: Math.random() * 0.02 + 0.02
+                });
+            }
+        }
+
+        // パーティクルを更新・描画
+        function updateParticles() {
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const p = particles[i];
+                p.x += p.vx;
+                p.y += p.vy;
+                p.alpha -= p.decay;
+                p.vx *= 0.98;
+                p.vy *= 0.98;
+
+                if (p.alpha <= 0) {
+                    particles.splice(i, 1);
+                    continue;
+                }
+
+                ctx.save();
+                ctx.globalAlpha = p.alpha;
+                ctx.fillStyle = p.color;
+                ctx.shadowBlur = 20;
+                ctx.shadowColor = p.color;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        // パドルを描画
+        function drawPaddle(paddle) {
+            // 残像効果
+            paddle.trail.push({ y: paddle.y, alpha: 1 });
+            if (paddle.trail.length > 5) paddle.trail.shift();
+
+            paddle.trail.forEach((t, i) => {
+                ctx.save();
+                ctx.globalAlpha = t.alpha * (i / paddle.trail.length) * 0.5;
+                ctx.fillStyle = paddle.color;
+                ctx.shadowBlur = 20;
+                ctx.shadowColor = paddle.color;
+                ctx.fillRect(paddle.x, t.y, paddle.width, paddle.height);
+                ctx.restore();
+                t.alpha *= 0.9;
+            });
+
+            // メインパドル
+            ctx.save();
+            ctx.fillStyle = paddle.color;
+            ctx.shadowBlur = 30;
+            ctx.shadowColor = paddle.color;
+            ctx.fillRect(paddle.x, paddle.y, paddle.width, paddle.height);
+            ctx.restore();
+        }
+
+        // ボールを描画
+        function drawBall() {
+            // 軌跡
+            ball.trail.push({ x: ball.x, y: ball.y, alpha: 1 });
+            if (ball.trail.length > 10) ball.trail.shift();
+
+            ball.trail.forEach((t, i) => {
+                ctx.save();
+                ctx.globalAlpha = (i / ball.trail.length) * 0.5;
+                ctx.beginPath();
+                ctx.arc(t.x, t.y, ball.radius * 0.8, 0, Math.PI * 2);
+                ctx.fillStyle = '#fff';
+                ctx.shadowBlur = 15;
+                ctx.shadowColor = '#fff';
+                ctx.fill();
+                ctx.restore();
+            });
+
+            // メインボール
+            const gradient = ctx.createRadialGradient(ball.x, ball.y, 0, ball.x, ball.y, ball.radius);
+            gradient.addColorStop(0, '#fff');
+            gradient.addColorStop(0.5, '#0ff');
+            gradient.addColorStop(1, '#f0f');
+
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
+            ctx.fillStyle = gradient;
+            ctx.shadowBlur = 30 * ball.glowIntensity;
+            ctx.shadowColor = '#fff';
+            ctx.fill();
+            ctx.restore();
+
+            ball.glowIntensity = Math.max(1, ball.glowIntensity * 0.95);
+        }
+
+        // 中央線を描画
+        function drawCenterLine() {
+            ctx.strokeStyle = 'rgba(0, 255, 255, 0.3)';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([10, 10]);
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = '#0ff';
+            ctx.beginPath();
+            ctx.moveTo(canvas.width / 2, 0);
+            ctx.lineTo(canvas.width / 2, canvas.height);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            ctx.shadowBlur = 0;
+        }
+
+        // スクリーンシェイク
+        function screenShake() {
+            canvas.classList.add('hit');
+            setTimeout(() => canvas.classList.remove('hit'), 200);
+        }
+
+        // パドルを移動
+        function movePaddles() {
+            // プレイヤー1（人間）
+            if (keys['w'] || keys['W']) {
+                player1.dy = -paddleSpeed;
+            } else if (keys['s'] || keys['S']) {
+                player1.dy = paddleSpeed;
+            } else {
+                player1.dy = 0;
+            }
+
+            // プレイヤー2（CPU）
+            const cpuReactionSpeed = 0.12; // CPUの反応速度（0.0〜1.0）
+            const cpuError = 15; // CPUの誤差範囲（ピクセル）
+            const paddleCenter = player2.y + player2.height / 2;
+
+            // ボールがCPU側に向かっている場合のみ反応
+            if (ball.dx > 0) {
+                const targetY = ball.y + (Math.random() - 0.5) * cpuError;
+                const diff = targetY - paddleCenter;
+
+                // スムーズな追従
+                if (Math.abs(diff) > 5) {
+                    player2.dy = diff * cpuReactionSpeed;
+                    player2.dy = Math.max(-paddleSpeed, Math.min(paddleSpeed, player2.dy));
+                } else {
+                    player2.dy = 0;
+                }
+            } else {
+                // ボールが遠い時は中央に戻る
+                const centerY = canvas.height / 2;
+                const diff = centerY - paddleCenter;
+                if (Math.abs(diff) > 10) {
+                    player2.dy = diff * 0.03;
+                } else {
+                    player2.dy = 0;
+                }
+            }
+
+            player1.y += player1.dy;
+            player2.y += player2.dy;
+
+            player1.y = Math.max(0, Math.min(canvas.height - player1.height, player1.y));
+            player2.y = Math.max(0, Math.min(canvas.height - player2.height, player2.y));
+        }
+
+        // ボールを移動
+        function moveBall() {
+            ball.x += ball.dx;
+            ball.y += ball.dy;
+
+            // 上下の壁との衝突
+            if (ball.y - ball.radius < 0 || ball.y + ball.radius > canvas.height) {
+                ball.dy = -ball.dy;
+                createParticles(ball.x, ball.y, '#fff', 10);
+                playSound('wall');
+            }
+
+            // プレイヤー1のパドルとの衝突
+            if (ball.x - ball.radius < player1.x + player1.width &&
+                ball.y > player1.y &&
+                ball.y < player1.y + player1.height &&
+                ball.dx < 0) {
+                ball.dx = -ball.dx * 1.05;
+                const hitPos = (ball.y - (player1.y + player1.height / 2)) / (player1.height / 2);
+                ball.dy = hitPos * ball.speed * 1.5;
+                createParticles(ball.x, ball.y, player1.color, 30);
+                screenShake();
+                ball.glowIntensity = 2;
+                combo++;
+                updateCombo();
+                playSound('hit');
+            }
+
+            // プレイヤー2のパドルとの衝突
+            if (ball.x + ball.radius > player2.x &&
+                ball.y > player2.y &&
+                ball.y < player2.y + player2.height &&
+                ball.dx > 0) {
+                ball.dx = -ball.dx * 1.05;
+                const hitPos = (ball.y - (player2.y + player2.height / 2)) / (player2.height / 2);
+                ball.dy = hitPos * ball.speed * 1.5;
+                createParticles(ball.x, ball.y, player2.color, 30);
+                screenShake();
+                ball.glowIntensity = 2;
+                combo++;
+                updateCombo();
+                playSound('hit');
+            }
+
+            // 得点判定
+            if (ball.x - ball.radius < 0) {
+                player2.score++;
+                createParticles(ball.x, ball.y, '#ff0', 50);
+                resetBall(1);
+                updateScore();
+                checkWin();
+                combo = 0;
+                updateCombo();
+                playSound('score');
+            } else if (ball.x + ball.radius > canvas.width) {
+                player1.score++;
+                createParticles(ball.x, ball.y, '#ff0', 50);
+                resetBall(-1);
+                updateScore();
+                checkWin();
+                combo = 0;
+                updateCombo();
+                playSound('score');
+            }
+        }
+
+        // コンボ表示更新
+        function updateCombo() {
+            if (combo > 1) {
+                comboEl.textContent = `🔥 COMBO x${combo} 🔥`;
+                maxCombo = Math.max(maxCombo, combo);
+            } else {
+                comboEl.textContent = '';
+            }
+        }
+
+        // 簡易サウンド効果（Web Audio API）
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+
+        function playSound(type) {
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+
+            switch(type) {
+                case 'hit':
+                    oscillator.frequency.value = 300 + combo * 50;
+                    gainNode.gain.value = 0.3;
+                    oscillator.type = 'square';
+                    break;
+                case 'wall':
+                    oscillator.frequency.value = 200;
+                    gainNode.gain.value = 0.2;
+                    oscillator.type = 'sine';
+                    break;
+                case 'score':
+                    oscillator.frequency.value = 150;
+                    gainNode.gain.value = 0.4;
+                    oscillator.type = 'triangle';
+                    break;
+            }
+
+            oscillator.start();
+            oscillator.stop(audioContext.currentTime + 0.1);
+        }
+
+        // ボールをリセット
+        function resetBall(direction) {
+            ball.x = canvas.width / 2;
+            ball.y = canvas.height / 2;
+            ball.dx = direction * ball.speed;
+            ball.dy = (Math.random() - 0.5) * ball.speed;
+            ball.trail = [];
+        }
+
+        // スコアを更新
+        function updateScore() {
+            player1ScoreEl.textContent = player1.score;
+            player2ScoreEl.textContent = player2.score;
+            scoreContainer.classList.add('flash');
+            setTimeout(() => scoreContainer.classList.remove('flash'), 500);
+        }
+
+        // 勝利判定
+        function checkWin() {
+            const winScore = 5;
+            if (player1.score >= winScore) {
+                endGame('🏆 YOU WIN! 🏆');
+            } else if (player2.score >= winScore) {
+                endGame('💀 CPU WINS! 💀');
+            }
+        }
+
+        // ゲーム終了
+        function endGame(message) {
+            gameRunning = false;
+            gameOverEl.textContent = message + `\nMAX COMBO: ${maxCombo}`;
+            gameOverEl.style.display = 'block';
+            startButton.textContent = '🔄 RESTART 🔄';
+            cancelAnimationFrame(animationId);
+
+            // 勝利エフェクト
+            for (let i = 0; i < 100; i++) {
+                setTimeout(() => {
+                    createParticles(
+                        Math.random() * canvas.width,
+                        Math.random() * canvas.height,
+                        `hsl(${Math.random() * 360}, 100%, 50%)`,
+                        5
+                    );
+                }, i * 50);
+            }
+        }
+
+        // ゲームループ
+        function gameLoop() {
+            if (!gameRunning) return;
+
+            // 画面をクリア
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // 描画
+            drawCenterLine();
+            updateParticles();
+            drawPaddle(player1);
+            drawPaddle(player2);
+            drawBall();
+
+            // 更新
+            movePaddles();
+            moveBall();
+
+            animationId = requestAnimationFrame(gameLoop);
+        }
+
+        // ゲーム開始
+        function startGame() {
+            if (gameRunning) return;
+
+            // リセット
+            player1.score = 0;
+            player2.score = 0;
+            player1.y = canvas.height / 2 - paddleHeight / 2;
+            player2.y = canvas.height / 2 - paddleHeight / 2;
+            player1.trail = [];
+            player2.trail = [];
+            combo = 0;
+            maxCombo = 0;
+            updateScore();
+            updateCombo();
+            resetBall(Math.random() < 0.5 ? 1 : -1);
+
+            gameOverEl.style.display = 'none';
+            startButton.textContent = '⚡ PLAYING ⚡';
+            gameRunning = true;
+
+            gameLoop();
+        }
+
+        startButton.addEventListener('click', startGame);
+
+        // 初期描画
+        ctx.fillStyle = '#000';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        drawCenterLine();
+        drawPaddle(player1);
+        drawPaddle(player2);
+        drawBall();
+    </script>
+</body>
+</html>
